@@ -1,34 +1,74 @@
 import { EntryType, PaymentMethod } from "@prisma/client";
 
 export type AnalyticsEntry = { type: EntryType; amountFen: number; paymentMethod: PaymentMethod; occurredAt: Date };
+export type TrendGranularity = "day" | "week" | "month";
+export type TrendPoint = { date: string; label: string; incomeFen: number; expenseFen: number; netFen: number };
 
-const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
+const chinaFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
+export function dayKey(date: Date) { return chinaFormatter.format(date); }
 
-export function dayKey(date: Date) { return dayFormatter.format(date); }
+export function chooseGranularity(from: Date, to: Date): TrendGranularity {
+  const days = Math.floor((to.getTime() - from.getTime()) / 86_400_000) + 1;
+  if (days <= 31) return "day";
+  if (days <= 180) return "week";
+  return "month";
+}
 
-export function getSummary(entries: AnalyticsEntry[], from: Date, to: Date) {
+function mondayKey(date: Date) {
+  const [year, month, day] = dayKey(date).split("-").map(Number);
+  const local = new Date(Date.UTC(year, month - 1, day));
+  const weekday = (local.getUTCDay() + 6) % 7;
+  local.setUTCDate(local.getUTCDate() - weekday);
+  return local.toISOString().slice(0, 10);
+}
+
+function monthKey(date: Date) { return dayKey(date).slice(0, 7); }
+
+function bucketKey(date: Date, granularity: TrendGranularity) {
+  if (granularity === "day") return dayKey(date);
+  if (granularity === "week") return mondayKey(date);
+  return monthKey(date);
+}
+
+function bucketLabel(key: string, granularity: TrendGranularity) {
+  if (granularity === "day") return key.slice(5).replace("-", "/");
+  if (granularity === "week") return key.slice(5).replace("-", "/") + " 周";
+  const [year, month] = key.split("-");
+  return year + "年" + Number(month) + "月";
+}
+
+function nextBucket(key: string, granularity: TrendGranularity) {
+  const [year, month, day = 1] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (granularity === "day") date.setUTCDate(date.getUTCDate() + 1);
+  else if (granularity === "week") date.setUTCDate(date.getUTCDate() + 7);
+  else date.setUTCMonth(date.getUTCMonth() + 1, 1);
+  return granularity === "month" ? date.toISOString().slice(0, 7) : date.toISOString().slice(0, 10);
+}
+
+export function buildTrend(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to)) {
+  const trendMap = new Map<string, { incomeFen: number; expenseFen: number }>();
+  let key = bucketKey(from, granularity);
+  const finalKey = bucketKey(to, granularity);
+  while (key <= finalKey) { trendMap.set(key, { incomeFen: 0, expenseFen: 0 }); key = nextBucket(key, granularity); }
+  for (const entry of entries) {
+    const entryKey = bucketKey(entry.occurredAt, granularity);
+    const bucket = trendMap.get(entryKey);
+    if (!bucket) continue;
+    if (entry.type === "INCOME") bucket.incomeFen += entry.amountFen;
+    else bucket.expenseFen += entry.amountFen;
+  }
+  return [...trendMap.entries()].map(([date, totals]) => ({ date, label: bucketLabel(date, granularity), ...totals, netFen: totals.incomeFen - totals.expenseFen }));
+}
+
+export function getSummary(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to)) {
   const incomeFen = entries.filter((entry) => entry.type === "INCOME").reduce((sum, entry) => sum + entry.amountFen, 0);
   const expenseFen = entries.filter((entry) => entry.type === "EXPENSE").reduce((sum, entry) => sum + entry.amountFen, 0);
   const paymentBreakdown = Object.values(PaymentMethod).map((paymentMethod) => ({
     paymentMethod,
     amountFen: entries.filter((entry) => entry.type === "INCOME" && entry.paymentMethod === paymentMethod).reduce((sum, entry) => sum + entry.amountFen, 0),
   })).filter((item) => item.amountFen > 0);
-  const trendMap = new Map<string, { incomeFen: number; expenseFen: number }>();
-  for (let current = new Date(from); current <= to; current.setDate(current.getDate() + 1)) trendMap.set(dayKey(current), { incomeFen: 0, expenseFen: 0 });
-  for (const entry of entries) {
-    const day = trendMap.get(dayKey(entry.occurredAt));
-    if (!day) continue;
-    if (entry.type === "INCOME") day.incomeFen += entry.amountFen;
-    else day.expenseFen += entry.amountFen;
-  }
-  return {
-    incomeFen,
-    expenseFen,
-    netFen: incomeFen - expenseFen,
-    transactionCount: entries.length,
-    paymentBreakdown,
-    trend: [...trendMap.entries()].map(([date, totals]) => ({ date, ...totals, netFen: totals.incomeFen - totals.expenseFen })),
-  };
+  return { incomeFen, expenseFen, netFen: incomeFen - expenseFen, transactionCount: entries.length, paymentBreakdown, granularity, trend: buildTrend(entries, from, to, granularity) };
 }
 
 export function getDayBounds(input: string) {
@@ -38,4 +78,8 @@ export function getDayBounds(input: string) {
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
   return { start, end };
+}
+
+export function dateRangeLabel(from: string, to: string) {
+  return from === to ? from.replaceAll("-", "/") : from.replaceAll("-", "/") + " - " + to.replaceAll("-", "/");
 }
