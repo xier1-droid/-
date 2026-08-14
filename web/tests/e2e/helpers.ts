@@ -6,11 +6,12 @@ export async function registerOwner(page: Page, prefix: string) {
   const email = `owner-${Date.now()}@example.com`;
   await page.goto("/");
   await page.getByRole("button", { name: "创建账号", exact: true }).click();
+  await page.getByRole("button", { name: "邮箱注册" }).click();
   await page.getByLabel("家庭商户名称").fill(`${prefix}家庭商户`);
   await page.getByLabel("第一个摊位名称").fill("主摊位");
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码").fill(testPassword);
-  await page.getByRole("button", { name: "创建家庭商户" }).click();
+  await page.locator("form").getByRole("button", { name: "创建账号" }).click();
   await expect(page.getByRole("heading", { name: "今天生意怎么样？" })).toBeVisible();
   return email;
 }

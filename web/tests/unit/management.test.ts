@@ -20,7 +20,7 @@ describe("成员与摊位管理校验", () => {
 
   it("允许注册时携带邀请码并清理首尾空格", () => {
     const result = registerSchema.parse({ email: "INVITED@EXAMPLE.COM", password: "Password2026!", organizationName: "不会创建", storeName: "不会创建", inviteCode: "  invitation-code-2026  " });
-    expect(result.email).toBe("invited@example.com");
+    expect("email" in result ? result.email : null).toBe("invited@example.com");
     expect(result.inviteCode).toBe("invitation-code-2026");
   });
 

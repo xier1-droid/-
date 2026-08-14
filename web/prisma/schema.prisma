@@ -40,15 +40,38 @@ enum SyncStatus {
   FAILED
 }
 
+enum VerificationPurpose {
+  REGISTER
+  RESET_PASSWORD
+}
+
 model User {
   id                  String               @id @default(cuid())
-  email               String               @unique
+  email               String?              @unique
+  phone               String?              @unique
   passwordHash        String
+  sessionVersion      Int                  @default(0)
   createdAt           DateTime             @default(now())
   memberships         OrganizationMember[]
   createdEntries      LedgerEntry[]        @relation("EntryCreator")
   updatedEntries      LedgerEntry[]        @relation("EntryUpdater")
   acceptedInvitations Invitation[]         @relation("InvitationAcceptor")
+}
+
+model VerificationChallenge {
+  id            String              @id @default(cuid())
+  phone         String
+  purpose       VerificationPurpose
+  codeHash      String
+  expiresAt     DateTime
+  attemptCount  Int                 @default(0)
+  maxAttempts   Int                 @default(5)
+  consumedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  requestIpHash String
+
+  @@index([phone, purpose, createdAt])
+  @@index([requestIpHash, createdAt])
 }
 
 model Organization {

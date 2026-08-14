@@ -15,22 +15,25 @@ test("跨账号角色、摊位授权和成员移除立即生效", async ({ brows
 
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
-  const memberEmail = `invited-${Date.now()}@example.com`;
+  const memberPhone = `138${String(Date.now()).slice(-8)}`;
   await memberPage.goto("/");
   await memberPage.getByRole("button", { name: "创建账号", exact: true }).click();
-  await memberPage.getByLabel("邮箱").fill(memberEmail);
+  await memberPage.getByLabel("手机号").fill(memberPhone);
+  await memberPage.getByRole("button", { name: "获取验证码" }).click();
+  await memberPage.getByLabel("短信验证码").fill("246810");
   await memberPage.getByLabel("密码").fill(testPassword);
   await memberPage.getByLabel("家庭邀请码（选填）").fill(invitationResponse.body.invitation.code);
-  await memberPage.getByRole("button", { name: "创建家庭商户" }).click();
+  await memberPage.locator("form").getByRole("button", { name: "创建账号" }).click();
   await expect(memberPage.getByText(bootstrap.body.organization.name)).toBeVisible();
   const invitedBootstrap = await api<{ organization: { id: string }; member: { role: string }; stores: { id: string }[] }>(memberPage, "/api/organizations/current");
   expect(invitedBootstrap.body.organization.id).toBe(organizationId);
   expect(invitedBootstrap.body.member.role).toBe("BOOKKEEPER");
   expect(invitedBootstrap.body.stores.map((store) => store.id)).toEqual([mainStore.id]);
 
-  const members = await api<{ members: { id: string; email: string }[] }>(page, `/api/organizations/current/members?organizationId=${organizationId}`);
-  const ownerMember = members.body.members.find((member) => member.email !== memberEmail)!;
-  const member = members.body.members.find((item) => item.email === memberEmail)!;
+  const members = await api<{ members: { id: string; email: string | null; identifier: string }[] }>(page, `/api/organizations/current/members?organizationId=${organizationId}`);
+  const ownerMember = members.body.members.find((member) => member.email)!;
+  const member = members.body.members.find((item) => !item.email)!;
+  expect(member.identifier).toContain("****");
   const selfChange = await api(page, `/api/organization-members/${ownerMember.id}`, { method: "PATCH", body: { role: "ADMIN", storeIds: [mainStore.id] } });
   expect(selfChange.status).toBe(422);
   const promoteOwner = await api(page, `/api/organization-members/${member.id}`, { method: "PATCH", body: { role: "OWNER", storeIds: [mainStore.id] } });

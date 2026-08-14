@@ -1,34 +1,22 @@
 "use client";
-import { FormEvent, useState } from "react";
-
+import { FormEvent, useEffect, useState } from "react";
+type View = "login" | "register" | "reset"; type RegisterMethod = "phone" | "email";
 export function AuthPanel({ initialMessage = "" }: { initialMessage?: string }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [message, setMessage] = useState(initialMessage);
-  const [pending, setPending] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setPending(true); setMessage("");
-    const form = new FormData(event.currentTarget);
-    const payload = mode === "register" ? { email: form.get("email"), password: form.get("password"), organizationName: form.get("organizationName") || "我的家庭商户", storeName: form.get("storeName") || "默认摊位", inviteCode: inviteCode.trim() || undefined } : { email: form.get("email"), password: form.get("password") };
-    const response = await fetch("/api/auth/" + mode, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const result = await response.json().catch(() => null); setPending(false);
-    if (!response.ok) { setMessage(result?.error?.message ?? "操作失败，请重试"); return; }
-    if (mode === "login" && inviteCode.trim()) {
-      const inviteResponse = await fetch("/api/invitations/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: inviteCode.trim() }) });
-      const inviteResult = await inviteResponse.json().catch(() => null);
-      if (!inviteResponse.ok) { setMessage("登录成功，但邀请码未加入：" + (inviteResult?.error?.message ?? "请稍后重试")); return; }
-    }
-    window.location.reload();
+  const [view, setView] = useState<View>("login"); const [registerMethod, setRegisterMethod] = useState<RegisterMethod>("phone"); const [message, setMessage] = useState(initialMessage); const [pending, setPending] = useState(false); const [inviteCode, setInviteCode] = useState(""); const [phone, setPhone] = useState(""); const [countdown, setCountdown] = useState(0);
+  useEffect(() => { if (!countdown) return; const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(timer); }, [countdown]);
+  function switchView(next: View) { setView(next); setMessage(""); }
+  async function sendCode(purpose: "REGISTER" | "RESET_PASSWORD") { setPending(true); setMessage(""); const response = await fetch("/api/auth/sms/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, purpose }) }); const result = await response.json().catch(() => null); setPending(false); if (!response.ok) return setMessage(result?.error?.message ?? "验证码发送失败，请稍后重试"); setCountdown(result.retryAfterSeconds ?? 60); setMessage("验证码已发送，请在 5 分钟内填写。"); }
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setPending(true); setMessage(""); const form = new FormData(event.currentTarget);
+    if (view === "reset") { const response = await fetch("/api/auth/password/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, verificationCode: form.get("verificationCode"), newPassword: form.get("password") }) }); const result = await response.json().catch(() => null); setPending(false); if (!response.ok) return setMessage(result?.error?.message ?? "密码重置失败"); setView("login"); setMessage("密码已重置，请使用新密码登录。"); return; }
+    const payload = view === "register" ? { method: registerMethod, identifier: registerMethod === "phone" ? phone : form.get("identifier"), password: form.get("password"), verificationCode: registerMethod === "phone" ? form.get("verificationCode") : undefined, organizationName: form.get("organizationName") || "我的家庭商户", storeName: form.get("storeName") || "默认摊位", inviteCode: inviteCode.trim() || undefined } : { identifier: form.get("identifier"), password: form.get("password") };
+    const response = await fetch("/api/auth/" + view, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await response.json().catch(() => null); setPending(false); if (!response.ok) return setMessage(result?.error?.message ?? "操作失败，请重试");
+    if (view === "login" && inviteCode.trim()) { const inviteResponse = await fetch("/api/invitations/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: inviteCode.trim() }) }); const inviteResult = await inviteResponse.json().catch(() => null); if (!inviteResponse.ok) return setMessage("登录成功，但邀请码未加入：" + (inviteResult?.error?.message ?? "请稍后重试")); } window.location.reload();
   }
-
-  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">账</div><p className="eyebrow">给每一个认真做生意的人</p><h1>摊主日记账</h1><p className="muted">收摊前记清每一笔，随时看懂全家的经营数据。</p>
-    <div className="tabs"><button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>登录</button><button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>创建账号</button></div>
-    <form onSubmit={submit} className="form-stack">
-      {mode === "register" && <><label>家庭商户名称<input name="organizationName" placeholder="例如：老李家的早餐摊" /></label><label>第一个摊位名称<input name="storeName" placeholder="例如：东门摊位" /></label></>}
-      <label>邮箱<input required type="email" name="email" placeholder="name@example.com" /></label><label>密码<input required minLength={8} type="password" name="password" placeholder="至少 8 位" /></label>
-      <label>家庭邀请码（选填）<input value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} placeholder="受邀加入家庭商户时填写" /></label>
-      {message && <p className="form-error">{message}</p>}<button className="primary wide" disabled={pending}>{pending ? "请稍候…" : mode === "login" ? "登录并查看今日账目" : "创建家庭商户"}</button>
-    </form>
+  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">账</div><p className="eyebrow">给每一个认真做生意的人</p><h1>摊主日记账</h1><p className="muted">收摊前记清每一笔，随时看懂全家的经营数据。</p><div className="tabs"><button className={view === "login" ? "active" : ""} onClick={() => switchView("login")}>登录</button><button className={view === "register" ? "active" : ""} onClick={() => switchView("register")}>创建账号</button></div>
+    {view === "register" && <div className="segmented auth-methods"><button type="button" className={registerMethod === "phone" ? "selected" : ""} onClick={() => setRegisterMethod("phone")}>手机号注册</button><button type="button" className={registerMethod === "email" ? "selected" : ""} onClick={() => setRegisterMethod("email")}>邮箱注册</button></div>}{view === "reset" && <div className="auth-subhead"><button className="ghost" onClick={() => switchView("login")}>返回登录</button><strong>手机号找回密码</strong></div>}
+    <form onSubmit={submit} className="form-stack">{view === "register" && <><label>家庭商户名称<input name="organizationName" placeholder="例如：老李家的早餐摊" /></label><label>第一个摊位名称<input name="storeName" placeholder="例如：东门摊位" /></label></>}{view === "login" && <label>手机号或邮箱<input required name="identifier" autoComplete="username" placeholder="手机号或 name@example.com" /></label>}
+      {(view === "reset" || view === "register" && registerMethod === "phone") && <><label>手机号<input required inputMode="numeric" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="中国大陆 11 位手机号" /></label><div className="verification-row"><label>短信验证码<input required inputMode="numeric" name="verificationCode" maxLength={6} placeholder="6 位验证码" /></label><button type="button" disabled={pending || countdown > 0} onClick={() => void sendCode(view === "reset" ? "RESET_PASSWORD" : "REGISTER")}>{countdown ? `${countdown} 秒` : "获取验证码"}</button></div></>}{view === "register" && registerMethod === "email" && <label>邮箱<input required type="email" name="identifier" placeholder="name@example.com" /></label>}
+      <label>{view === "reset" ? "新密码" : "密码"}<input required minLength={8} type="password" name="password" autoComplete={view === "login" ? "current-password" : "new-password"} placeholder="至少 8 位" /></label>{view !== "reset" && <label>家庭邀请码（选填）<input value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} placeholder="受邀加入家庭商户时填写" /></label>}{view === "register" && inviteCode.trim() && <p className="settings-tip">注册后会直接加入邀请方，上方商户和摊位名称不会创建。</p>}
+      {message && <p className={message.includes("已发送") || message.includes("已重置") ? "success-notice" : "form-error"}>{message}</p>}<button className="primary wide" disabled={pending}>{pending ? "请稍候…" : view === "login" ? "登录并查看今日账目" : view === "register" ? "创建账号" : "重置密码"}</button>{view === "login" && <button type="button" className="text-command" onClick={() => switchView("reset")}>忘记密码</button>}{view === "reset" && <p className="settings-tip">当前仅支持手机号账号自助找回；纯邮箱账号暂不支持自助重置。</p>}</form>
   </section></main>;
 }

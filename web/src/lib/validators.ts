@@ -3,15 +3,18 @@ import { z } from "zod";
 const roleSchema = z.enum(["OWNER", "ADMIN", "BOOKKEEPER", "VIEWER"]);
 const paymentMethodSchema = z.enum(["CASH", "WECHAT", "ALIPAY", "BANK_CARD", "OTHER"]);
 
-export const registerSchema = z.object({
+const baseRegister = z.object({
   email: z.string().email("请输入正确的邮箱地址").transform((value) => value.toLowerCase().trim()),
   password: z.string().min(8, "密码至少需要 8 位"),
   organizationName: z.string().min(1).max(60).default("我的家庭商户"),
   storeName: z.string().min(1).max(60).default("默认摊位"),
   inviteCode: z.string().trim().min(8).max(128).optional(),
 });
+export const registerSchema = z.union([baseRegister, z.object({ method: z.enum(["email", "phone"]), identifier: z.string().trim().min(1), password: z.string().min(8), verificationCode: z.string().regex(/^\d{6}$/).optional(), organizationName: z.string().min(1).max(60).default("我的家庭商户"), storeName: z.string().min(1).max(60).default("默认摊位"), inviteCode: z.string().trim().min(8).max(128).optional() })]);
 
-export const loginSchema = registerSchema.pick({ email: true, password: true });
+export const loginSchema = z.union([baseRegister.pick({ email: true, password: true }), z.object({ identifier: z.string().trim().min(1), password: z.string().min(8), inviteCode: z.string().trim().min(8).max(128).optional() })]);
+export const smsSendSchema = z.object({ phone: z.string().trim(), purpose: z.enum(["REGISTER", "RESET_PASSWORD"]) });
+export const passwordResetSchema = z.object({ phone: z.string().trim(), verificationCode: z.string().regex(/^\d{6}$/), newPassword: z.string().min(8) });
 
 export const ledgerEntrySchema = z.object({
   storeId: z.string().min(1),
