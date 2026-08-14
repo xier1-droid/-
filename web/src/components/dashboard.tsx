@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { BookOpenCheck, Download, FilePlus2, ReceiptText, Settings2, WalletCards } from "lucide-react";
 import { formatFen, yuanToFen } from "@/lib/money";
 import { TrendChart } from "@/components/trend-chart";
 import { flushPendingOperations, offlineDb, pendingCount, queueOperation } from "@/lib/offline-db";
@@ -72,7 +73,7 @@ export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstra
   function applyRange(nextRange: DateRange) { window.localStorage.setItem(rangeStorageKey, JSON.stringify(nextRange)); setDateRange(nextRange); setShowDatePicker(false); }
   const exportHref = "/api/exports/ledger.csv?organizationId=" + bootstrap.organization.id + "&storeId=" + apiScope + "&from=" + dateRange.from + "&to=" + dateRange.to;
   return <main className="app-shell">
-    <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name}</p><h1>今天生意怎么样？</h1></div><div className="topbar-actions"><button className="ghost" onClick={sync}>同步{syncCount ? " · " + syncCount : ""}</button><Link className="ghost" href="/settings">设置</Link></div></header>
+    <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name} · 今日经营本</p><h1>今天生意怎么样？</h1></div><div className="topbar-actions"><button className="icon-command" aria-label="同步账目" onClick={sync}><WalletCards size={18} /><span>同步{syncCount ? " " + syncCount : ""}</span></button><Link className="icon-command" aria-label="设置" href="/settings"><Settings2 size={18} /><span>设置</span></Link></div></header>
     <section className="scope-row"><select value={storeScope} onChange={(event) => setStoreScope(event.target.value)} aria-label="选择摊位"><option value="all">全部已授权摊位</option>{scopeOptions.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>{canManage && <button className="link-button" onClick={() => setShowInvite(true)}>邀请家人</button>}</section>
     {storeScope === "all" && writable && <p className="scope-hint">请先选择一个具体摊位，再记一笔或做日结。</p>}
     {message && <p className="notice">{message}</p>}
@@ -83,7 +84,7 @@ export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstra
       <section className="panel"><div className="panel-title"><h2>收款方式</h2><span>收入构成</span></div><div className="payment-list">{summary.paymentBreakdown.length ? summary.paymentBreakdown.map((item) => <div key={item.paymentMethod}><span>{methodLabel[item.paymentMethod]}</span><b>{formatFen(item.amountFen)}</b></div>) : <p className="muted">还没有收入记录</p>}</div></section>
       <section className="panel"><div className="panel-title"><h2>最近账目</h2><Link className="panel-link" href="/records">查看全部</Link></div><div className="entry-list">{summary.recentEntries.length ? summary.recentEntries.map((entry) => <div className="entry-row" key={entry.id}><div><b>{entry.category}</b><small>{entry.store.name} · {methodLabel[entry.paymentMethod]} · {new Date(entry.occurredAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</small></div><strong className={entry.type === "INCOME" ? "positive" : "negative"}>{entry.type === "INCOME" ? "+" : "-"}{formatFen(entry.amountFen)}</strong></div>) : <p className="muted">从“记一笔”开始记录今天的生意吧。</p>}</div></section>
     </>}
-    <nav className="bottom-nav"><button onClick={() => setShowEntry(true)} disabled={!writable || !selectedStore} className="add-button">＋ 记一笔</button><Link className="nav-link" href="/records">账目</Link><button onClick={() => setShowClosing(true)} disabled={!writable || storeScope === "all"}>日结</button><a className="nav-link" href={exportHref}>导出</a></nav>
+    <nav className="bottom-nav"><button aria-label="记一笔" onClick={() => setShowEntry(true)} disabled={!writable || !selectedStore} className="add-button"><FilePlus2 size={18} /><span>记一笔</span></button><Link className="nav-link" href="/records"><ReceiptText size={18} /><span>账目</span></Link><button aria-label="日结" onClick={() => setShowClosing(true)} disabled={!writable || storeScope === "all"}><BookOpenCheck size={18} /><span>日结</span></button><a className="nav-link" href={exportHref}><Download size={18} /><span>导出</span></a></nav>
     {showEntry && selectedStore && <EntryModal store={selectedStore} userId={bootstrap.userId} organizationId={bootstrap.organization.id} categories={bootstrap.categories} onClose={() => setShowEntry(false)} onSaved={() => { setShowEntry(false); loadSummary(); }} onQueued={(text) => { setShowEntry(false); setMessage(text); pendingCount(bootstrap.userId, bootstrap.organization.id).then(setSyncCount); }} />}
     {showClosing && selectedStore && <ClosingModal store={selectedStore} onClose={() => setShowClosing(false)} onSaved={() => { setShowClosing(false); setMessage("日结已保存"); }} />}
     {showInvite && <InviteModal organizationId={bootstrap.organization.id} stores={bootstrap.stores} onClose={() => setShowInvite(false)} />}

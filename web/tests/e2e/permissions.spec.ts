@@ -61,7 +61,7 @@ test("跨账号角色、摊位授权和成员移除立即生效", async ({ brows
 
   await api(page, `/api/organization-members/${member.id}`, { method: "PATCH", body: { role: "VIEWER", storeIds: [mainStore.id] } });
   await memberPage.reload();
-  await expect(memberPage.getByRole("button", { name: "＋ 记一笔" })).toBeDisabled();
+  await expect(memberPage.getByRole("button", { name: "记一笔" })).toBeDisabled();
   expect((await api(memberPage, "/api/ledger-entries", { method: "POST", body: { storeId: mainStore.id, type: "INCOME", amountFen: 100, paymentMethod: "CASH", category: "越权", occurredAt } })).status).toBe(403);
   expect((await api(memberPage, `/api/daily-closing/${closingDate}`, { method: "PUT", body: { storeId: mainStore.id, openingCashFen: 0, actualClosingCashFen: 0, note: null } })).status).toBe(403);
   const forbiddenStore = await api<{ error: { code: string } }>(memberPage, `/api/ledger-entries?organizationId=${organizationId}&storeId=${secondStore.id}&from=${closingDate}&to=${closingDate}`);

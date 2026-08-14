@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title>摊主日记账标识</title>
+  <rect width="96" height="96" rx="22" fill="#1f5145"/>
+  <path d="M19 39.5 29.5 28h37L77 39.5v5H19v-5Z" fill="#e8b75f"/>
+  <path d="M25 46h46v25.5a4.5 4.5 0 0 1-4.5 4.5H29.5a4.5 4.5 0 0 1-4.5-4.5V46Z" fill="#fffaf0"/>
+  <path d="M48 50.5c-7-4.1-13.8-2.5-17 0v18c3.2-2.1 10-3.4 17 .6 7-4 13.8-2.7 17-.6v-18c-3.2-2.5-10-4.1-17 0Z" fill="#d8e9d8" stroke="#1f5145" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M48 50.5v18.6M36 57.8h8M52 57.8h8" stroke="#1f5145" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="48" cy="39" r="3" fill="#b84e45"/>
+</svg>

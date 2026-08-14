@@ -3,7 +3,7 @@
   "short_name": "摊主记账",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f7f3",
-  "theme_color": "#155e4a",
-  "icons": []
+  "background_color": "#faf5eb",
+  "theme_color": "#1f5145",
+  "icons": [{ "src": "/shop-ledger-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

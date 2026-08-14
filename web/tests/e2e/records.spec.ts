@@ -13,7 +13,7 @@ test("所有者可以筛选、编辑并软删除账目", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "今天生意怎么样？" })).toBeVisible();
 
   await page.getByLabel("选择摊位").selectOption({ label: "端到端摊位" });
-  await page.getByRole("button", { name: "＋ 记一笔" }).click();
+  await page.getByRole("button", { name: "记一笔" }).click();
   await page.getByLabel("金额（元）").fill("25.50");
   await page.getByLabel("分类").fill("端到端早餐");
   await page.getByRole("button", { name: "保存账目" }).click();
