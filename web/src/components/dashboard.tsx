@@ -18,7 +18,6 @@ export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstra
   const [storeScope, setStoreScope] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>(initialDateRange);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [rangePreferenceLoaded, setRangePreferenceLoaded] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -59,7 +58,6 @@ export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstra
     const timer = window.setTimeout(() => {
       const saved = window.localStorage.getItem(rangeStorageKey);
       if (saved) { try { const parsed = JSON.parse(saved) as DateRange; if (parsed.from && parsed.to && parsed.from <= parsed.to) setDateRange(parsed); } catch {} }
-      setRangePreferenceLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [rangeStorageKey]);
@@ -72,7 +70,7 @@ export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstra
   const scopeOptions = useMemo(() => bootstrap.stores, [bootstrap.stores]);
   function applyRange(nextRange: DateRange) { window.localStorage.setItem(rangeStorageKey, JSON.stringify(nextRange)); setDateRange(nextRange); setShowDatePicker(false); }
   const exportHref = "/api/exports/ledger.csv?organizationId=" + bootstrap.organization.id + "&storeId=" + apiScope + "&from=" + dateRange.from + "&to=" + dateRange.to;
-  return <main className="app-shell" data-range-ready={rangePreferenceLoaded ? "true" : "false"}>
+  return <main className="app-shell">
     <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name}</p><h1>今天生意怎么样？</h1></div><div className="topbar-actions"><button className="ghost" onClick={sync}>同步{syncCount ? " · " + syncCount : ""}</button><button className="ghost" onClick={() => setShowSettings(true)}>设置</button></div></header>
     <section className="scope-row"><select value={storeScope} onChange={(event) => setStoreScope(event.target.value)} aria-label="选择摊位"><option value="all">全部已授权摊位</option>{scopeOptions.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>{canManage && <button className="link-button" onClick={() => setShowInvite(true)}>邀请家人</button>}</section>
     {storeScope === "all" && writable && <p className="scope-hint">请先选择一个具体摊位，再记一笔或做日结。</p>}
