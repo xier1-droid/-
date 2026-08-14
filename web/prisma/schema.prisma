@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  BOOKKEEPER
+  VIEWER
+}
+
+enum InvitationStatus {
+  ACTIVE
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum EntryType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentMethod {
+  CASH
+  WECHAT
+  ALIPAY
+  BANK_CARD
+  OTHER
+}
+
+enum SyncStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String
+  createdAt           DateTime             @default(now())
+  memberships         OrganizationMember[]
+  createdEntries      LedgerEntry[]        @relation("EntryCreator")
+  updatedEntries      LedgerEntry[]        @relation("EntryUpdater")
+  acceptedInvitations Invitation[]         @relation("InvitationAcceptor")
+}
+
+model Organization {
+  id          String               @id @default(cuid())
+  name        String
+  currency    String               @default("CNY")
+  timezone    String               @default("Asia/Shanghai")
+  createdAt   DateTime             @default(now())
+  members     OrganizationMember[]
+  stores      Store[]
+  invitations Invitation[]
+}
+
+model OrganizationMember {
+  id             String                  @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MemberRole
+  joinedAt       DateTime                @default(now())
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeAccesses  MemberStorePermission[]
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Store {
+  id             String                  @id @default(cuid())
+  organizationId String
+  name           String
+  timezone       String                  @default("Asia/Shanghai")
+  createdAt      DateTime                @default(now())
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entries        LedgerEntry[]
+  closings       DailyClosing[]
+  permissions    MemberStorePermission[]
+  invitationMaps InvitationStore[]
+
+  @@index([organizationId])
+}
+
+model MemberStorePermission {
+  id          String             @id @default(cuid())
+  memberId    String
+  storeId     String
+  accessLevel MemberRole
+  member      OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  store       Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, storeId])
+  @@index([storeId])
+}
+
+model Invitation {
+  id              String           @id @default(cuid())
+  organizationId  String
+  codeHash        String           @unique
+  targetRole      MemberRole
+  status          InvitationStatus @default(ACTIVE)
+  expiresAt       DateTime
+  acceptedById    String?
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  acceptedBy      User?            @relation("InvitationAcceptor", fields: [acceptedById], references: [id])
+  storeMappings   InvitationStore[]
+}
+
+model InvitationStore {
+  invitationId String
+  storeId      String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  store        Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([invitationId, storeId])
+}
+
+model LedgerEntry {
+  id                String        @id @default(cuid())
+  storeId           String
+  type              EntryType
+  amountFen         Int
+  paymentMethod     PaymentMethod
+  category          String
+  occurredAt        DateTime
+  note              String?
+  clientOperationId String?
+  createdById       String
+  updatedById       String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+  store             Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdBy         User          @relation("EntryCreator", fields: [createdById], references: [id])
+  updatedBy         User          @relation("EntryUpdater", fields: [updatedById], references: [id])
+
+  @@unique([storeId, clientOperationId])
+  @@index([storeId, occurredAt])
+}
+
+model DailyClosing {
+  id                    String   @id @default(cuid())
+  storeId               String
+  businessDate          DateTime
+  openingCashFen        Int      @default(0)
+  actualClosingCashFen  Int?
+  note                  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  store                 Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, businessDate])
+}
+
+model SyncOperation {
+  id                String     @id @default(cuid())
+  storeId           String
+  clientOperationId String
+  status            SyncStatus @default(PENDING)
+  processedAt       DateTime?
+  createdAt         DateTime   @default(now())
+
+  @@unique([storeId, clientOperationId])
+}

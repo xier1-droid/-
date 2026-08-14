@@ -1,0 +1,14 @@
+# Local workspace artifacts
+.npm-cache/
+
+# Application artifacts and secrets
+web/node_modules/
+web/.next/
+web/.env
+web/.env.*
+!web/.env.example
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/*.tsbuildinfo
+web/.vercel/

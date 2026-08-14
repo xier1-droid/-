@@ -1,0 +1,52 @@
+# 摊主日记账 Web 应用
+
+面向线下摆摊与家庭商户的手机优先记账工具。支持每日收支、现金日结、多摊位汇总、家庭邀请码、按摊位授权、CSV 导出与离线记账队列。
+
+完整产品与协作规范位于根目录的 [PROJECT_PLAN.md](../PROJECT_PLAN.md)。
+
+## 技术栈
+
+- Next.js App Router + React + TypeScript
+- PostgreSQL + Prisma
+- JWT 安全会话、Zod 输入校验、bcrypt 密码哈希
+- PWA + Service Worker + IndexedDB（Dexie）离线队列
+- Vitest 单元测试；Playwright 已配置为后续端到端测试依赖
+
+## 本地启动
+
+1. 确保本机运行 PostgreSQL，并新建数据库，例如 `stall_ledger`。
+2. 复制环境变量：`Copy-Item .env.example .env`，填写 `DATABASE_URL` 和足够随机的 `SESSION_SECRET`。
+3. 安装依赖：`npm install`。
+4. 生成数据库客户端并应用迁移：`npx prisma generate`，然后运行 `npx prisma migrate dev --name init`。
+5. 启动开发服务：`npm run dev`，访问 `http://localhost:3000`。
+
+## 常用命令
+
+| 命令 | 作用 |
+| --- | --- |
+| `npm run dev` | 启动本地开发服务 |
+| `npm run build` | 生产构建检查 |
+| `npm run lint` | 运行 ESLint |
+| `npm run test` | 运行金额与汇总单元测试 |
+| `npx prisma studio` | 打开开发数据库管理界面 |
+
+## 首版操作流程
+
+1. 创建账号时会自动建立一个家庭商户、一个默认摊位以及所有者权限。
+2. 所有者可在页面上生成一次性邀请码，选择家人可访问的摊位。
+3. 家人注册或登录时填入邀请码，即成为指定摊位的记账员。
+4. 每笔账目按分保存，离线时暂存到 IndexedDB，恢复网络后自动同步。
+5. “全部已授权摊位”仅聚合当前账号有权访问的摊位，避免跨摊位数据泄露。
+
+## 上线前清单
+
+- 配置正式 PostgreSQL、HTTPS、强随机 `SESSION_SECRET`、备份和错误监控。
+- 使用预发布数据库完成家庭成员、权限、离线同步和 CSV 导出的完整试用。
+- 中国大陆正式发布前完成域名与 ICP 备案相关安排。
+
+## 当前本机数据库状态
+
+已在本机 PostgreSQL 中创建 `stall_ledger` 数据库，并应用了初始 Prisma 迁移。以后每次修改 `prisma/schema.prisma`，请在 `web/` 目录运行：`npx prisma migrate dev --name <迁移名称>`。
+
+本机 PostgreSQL 服务会随 Windows 服务启动；开发时只需确认服务 `postgresql-x64-18` 正在运行，然后执行 `npm run dev`。
+
