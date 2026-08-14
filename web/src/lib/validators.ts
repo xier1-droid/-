@@ -8,6 +8,7 @@ export const registerSchema = z.object({
   password: z.string().min(8, "密码至少需要 8 位"),
   organizationName: z.string().min(1).max(60).default("我的家庭商户"),
   storeName: z.string().min(1).max(60).default("默认摊位"),
+  inviteCode: z.string().trim().min(8).max(128).optional(),
 });
 
 export const loginSchema = registerSchema.pick({ email: true, password: true });

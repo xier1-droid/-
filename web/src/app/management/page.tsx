@@ -10,7 +10,7 @@ export default async function ManagementPage() {
     where: { userId }, orderBy: { joinedAt: "asc" },
     include: { organization: { include: { stores: { orderBy: { createdAt: "asc" } } } }, storeAccesses: true },
   });
-  if (!membership) redirect("/");
+  if (!membership) redirect("/api/auth/removed");
   const stores = membership.role === "OWNER" ? membership.organization.stores : membership.organization.stores.filter((store) => membership.storeAccesses.some((access) => access.storeId === store.id));
   return <ManagementPanel organization={{ id: membership.organization.id, name: membership.organization.name }} currentMemberId={membership.id} role={membership.role} initialStores={stores.map(({ id, name }) => ({ id, name }))} />;
 }

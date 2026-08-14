@@ -17,7 +17,10 @@ export async function requireOrganizationMember(userId: string, organizationId: 
     where: { organizationId_userId: { organizationId, userId } },
     include: { storeAccesses: true },
   });
-  if (!member) throw new Error("FORBIDDEN_ORGANIZATION");
+  if (!member) {
+    const hasMembership = await prisma.organizationMember.findFirst({ where: { userId }, select: { id: true } });
+    throw new Error(hasMembership ? "FORBIDDEN_ORGANIZATION" : "MEMBER_REMOVED");
+  }
   return member;
 }
 
@@ -40,6 +43,11 @@ export async function requireStoreAccess(userId: string, storeId: string, canWri
 export function authorizationError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message === "UNAUTHORIZED") return apiError("请先登录", 401, message);
+  if (message === "MEMBER_REMOVED") return apiError("你已被移出家庭商户，请联系所有者重新邀请", 403, message);
+  if (message === "FORBIDDEN_ORGANIZATION") return apiError("你不是该家庭商户的成员", 403, message);
+  if (message === "FORBIDDEN_STORE") return apiError("你没有访问该摊位的权限", 403, message);
+  if (message === "FORBIDDEN_WRITE") return apiError("当前角色不能新增或修改数据", 403, message);
+  if (message === "FORBIDDEN_OWNER") return apiError("仅家庭商户所有者可以执行此操作", 403, message);
   if (message.startsWith("FORBIDDEN")) return apiError("你没有访问该数据的权限", 403, message);
   if (message === "STORE_NOT_FOUND") return apiError("摊位不存在", 404, message);
   return null;

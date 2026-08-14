@@ -1,23 +1,23 @@
 "use client";
 import { FormEvent, useState } from "react";
 
-export function AuthPanel() {
+export function AuthPanel({ initialMessage = "" }: { initialMessage?: string }) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
   const [pending, setPending] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setPending(true); setMessage("");
     const form = new FormData(event.currentTarget);
-    const payload = mode === "register" ? { email: form.get("email"), password: form.get("password"), organizationName: form.get("organizationName") || "我的家庭商户", storeName: form.get("storeName") || "默认摊位" } : { email: form.get("email"), password: form.get("password") };
+    const payload = mode === "register" ? { email: form.get("email"), password: form.get("password"), organizationName: form.get("organizationName") || "我的家庭商户", storeName: form.get("storeName") || "默认摊位", inviteCode: inviteCode.trim() || undefined } : { email: form.get("email"), password: form.get("password") };
     const response = await fetch("/api/auth/" + mode, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const result = await response.json().catch(() => null); setPending(false);
     if (!response.ok) { setMessage(result?.error?.message ?? "操作失败，请重试"); return; }
-    if (inviteCode.trim()) {
+    if (mode === "login" && inviteCode.trim()) {
       const inviteResponse = await fetch("/api/invitations/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: inviteCode.trim() }) });
       const inviteResult = await inviteResponse.json().catch(() => null);
-      if (!inviteResponse.ok) { setMessage("账号已创建，但邀请码未加入：" + (inviteResult?.error?.message ?? "请登录后重试")); return; }
+      if (!inviteResponse.ok) { setMessage("登录成功，但邀请码未加入：" + (inviteResult?.error?.message ?? "请稍后重试")); return; }
     }
     window.location.reload();
   }
