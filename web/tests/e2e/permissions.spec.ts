@@ -45,7 +45,7 @@ test("跨账号角色、摊位授权和成员移除立即生效", async ({ brows
 
   await api(page, `/api/organization-members/${member.id}`, { method: "PATCH", body: { role: "ADMIN", storeIds: [mainStore.id] } });
   await memberPage.reload();
-  await expect(memberPage.getByRole("button", { name: "设置" })).toBeVisible();
+  await expect(memberPage.getByRole("link", { name: "设置" })).toBeVisible();
   expect((await api(memberPage, `/api/ledger-entries/${ownerEntry.body.entry.id}`, { method: "DELETE" })).status).toBe(200);
   expect((await api(memberPage, "/api/stores", { method: "POST", body: { organizationId, name: "越权摊位" } })).status).toBe(403);
 

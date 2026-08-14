@@ -19,5 +19,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ r
   const rangeStartDate = new Date();
   rangeStartDate.setDate(rangeStartDate.getDate() - 6);
   const initialDateRange = { from: chinaDate(rangeStartDate), to: rangeEnd, mode: "近 7 天" };
-  return <Dashboard bootstrap={{ organization: { id: membership.organization.id, name: membership.organization.name }, member: { id: membership.id, role: membership.role }, stores }} initialDateRange={initialDateRange} />;
+  const categories = await prisma.ledgerCategory.findMany({ where: { organizationId: membership.organization.id, isActive: true }, orderBy: [{ type: "asc" }, { sortOrder: "asc" }] });
+  return <Dashboard bootstrap={{ userId, organization: { id: membership.organization.id, name: membership.organization.name, timezone: membership.organization.timezone, currency: membership.organization.currency }, member: { id: membership.id, role: membership.role }, stores, categories }} initialDateRange={initialDateRange} />;
 }

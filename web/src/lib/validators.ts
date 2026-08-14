@@ -56,3 +56,7 @@ export const storeCreateSchema = z.object({
 });
 
 export const storeUpdateSchema = storeCreateSchema.pick({ name: true });
+
+export const organizationSettingsSchema = z.object({ timezone: z.enum(["Asia/Shanghai", "Asia/Urumqi"]) });
+export const categoryCreateSchema = z.object({ organizationId: z.string().min(1), type: z.enum(["INCOME", "EXPENSE"]), name: z.string().trim().min(1, "请输入分类名称").max(30, "分类名称不能超过 30 个字") });
+export const categoryUpdateSchema = z.object({ name: z.string().trim().min(1).max(30).optional(), sortOrder: z.number().int().min(0).max(10000).optional(), isActive: z.boolean().optional() }).refine((value) => Object.keys(value).length > 0, "没有需要保存的分类修改");

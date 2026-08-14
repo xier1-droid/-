@@ -4,8 +4,7 @@ export type AnalyticsEntry = { type: EntryType; amountFen: number; paymentMethod
 export type TrendGranularity = "day" | "week" | "month";
 export type TrendPoint = { date: string; label: string; incomeFen: number; expenseFen: number; netFen: number };
 
-const chinaFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
-export function dayKey(date: Date) { return chinaFormatter.format(date); }
+export function dayKey(date: Date, timezone = "Asia/Shanghai") { return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date); }
 
 export function chooseGranularity(from: Date, to: Date): TrendGranularity {
   const days = Math.floor((to.getTime() - from.getTime()) / 86_400_000) + 1;
@@ -46,13 +45,13 @@ function nextBucket(key: string, granularity: TrendGranularity) {
   return granularity === "month" ? date.toISOString().slice(0, 7) : date.toISOString().slice(0, 10);
 }
 
-export function buildTrend(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to)) {
+export function buildTrend(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to), timezone = "Asia/Shanghai") {
   const trendMap = new Map<string, { incomeFen: number; expenseFen: number }>();
   let key = bucketKey(from, granularity);
   const finalKey = bucketKey(to, granularity);
   while (key <= finalKey) { trendMap.set(key, { incomeFen: 0, expenseFen: 0 }); key = nextBucket(key, granularity); }
   for (const entry of entries) {
-    const entryKey = bucketKey(entry.occurredAt, granularity);
+    const entryKey = granularity === "day" ? dayKey(entry.occurredAt, timezone) : bucketKey(entry.occurredAt, granularity);
     const bucket = trendMap.get(entryKey);
     if (!bucket) continue;
     if (entry.type === "INCOME") bucket.incomeFen += entry.amountFen;
@@ -61,20 +60,21 @@ export function buildTrend(entries: AnalyticsEntry[], from: Date, to: Date, gran
   return [...trendMap.entries()].map(([date, totals]) => ({ date, label: bucketLabel(date, granularity), ...totals, netFen: totals.incomeFen - totals.expenseFen }));
 }
 
-export function getSummary(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to)) {
+export function getSummary(entries: AnalyticsEntry[], from: Date, to: Date, granularity = chooseGranularity(from, to), timezone = "Asia/Shanghai") {
   const incomeFen = entries.filter((entry) => entry.type === "INCOME").reduce((sum, entry) => sum + entry.amountFen, 0);
   const expenseFen = entries.filter((entry) => entry.type === "EXPENSE").reduce((sum, entry) => sum + entry.amountFen, 0);
   const paymentBreakdown = Object.values(PaymentMethod).map((paymentMethod) => ({
     paymentMethod,
     amountFen: entries.filter((entry) => entry.type === "INCOME" && entry.paymentMethod === paymentMethod).reduce((sum, entry) => sum + entry.amountFen, 0),
   })).filter((item) => item.amountFen > 0);
-  return { incomeFen, expenseFen, netFen: incomeFen - expenseFen, transactionCount: entries.length, paymentBreakdown, granularity, trend: buildTrend(entries, from, to, granularity) };
+  return { incomeFen, expenseFen, netFen: incomeFen - expenseFen, transactionCount: entries.length, paymentBreakdown, granularity, trend: buildTrend(entries, from, to, granularity, timezone) };
 }
 
-export function getDayBounds(input: string) {
+export function getDayBounds(input: string, timezone = "Asia/Shanghai") {
   const [year, month, day] = input.split("-").map(Number);
   if (!year || !month || !day) throw new Error("日期格式应为 YYYY-MM-DD");
-  const start = new Date(Date.UTC(year, month - 1, day, -8, 0, 0));
+  const offsetHours = timezone === "Asia/Urumqi" ? 6 : 8;
+  const start = new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0));
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
   return { start, end };

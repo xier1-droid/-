@@ -83,6 +83,22 @@ model Organization {
   members     OrganizationMember[]
   stores      Store[]
   invitations Invitation[]
+  categories  LedgerCategory[]
+}
+
+model LedgerCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  type           EntryType
+  name           String
+  sortOrder      Int          @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type, name])
+  @@index([organizationId, type, isActive, sortOrder])
 }
 
 model OrganizationMember {
@@ -127,18 +143,18 @@ model MemberStorePermission {
 }
 
 model Invitation {
-  id              String           @id @default(cuid())
-  organizationId  String
-  codeHash        String           @unique
-  targetRole      MemberRole
-  status          InvitationStatus @default(ACTIVE)
-  expiresAt       DateTime
-  acceptedById    String?
-  acceptedAt      DateTime?
-  createdAt       DateTime         @default(now())
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  acceptedBy      User?            @relation("InvitationAcceptor", fields: [acceptedById], references: [id])
-  storeMappings   InvitationStore[]
+  id             String            @id @default(cuid())
+  organizationId String
+  codeHash       String            @unique
+  targetRole     MemberRole
+  status         InvitationStatus  @default(ACTIVE)
+  expiresAt      DateTime
+  acceptedById   String?
+  acceptedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  acceptedBy     User?             @relation("InvitationAcceptor", fields: [acceptedById], references: [id])
+  storeMappings  InvitationStore[]
 }
 
 model InvitationStore {
@@ -174,15 +190,15 @@ model LedgerEntry {
 }
 
 model DailyClosing {
-  id                    String   @id @default(cuid())
-  storeId               String
-  businessDate          DateTime
-  openingCashFen        Int      @default(0)
-  actualClosingCashFen  Int?
-  note                  String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  store                 Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  storeId              String
+  businessDate         DateTime
+  openingCashFen       Int      @default(0)
+  actualClosingCashFen Int?
+  note                 String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  store                Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, businessDate])
 }

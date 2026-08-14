@@ -7,10 +7,10 @@ export function yuanToFen(value: string): number {
   return Number(yuan) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
-export function formatFen(amountFen: number): string {
+export function formatFen(amountFen: number, currency = "CNY"): string {
   return new Intl.NumberFormat("zh-CN", {
     style: "currency",
-    currency: "CNY",
+    currency,
     minimumFractionDigits: 2,
   }).format(amountFen / 100);
 }

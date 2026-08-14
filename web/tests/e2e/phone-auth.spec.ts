@@ -28,7 +28,7 @@ test("手机号注册登录并通过短信重置密码", async ({ browser, page 
   await stalePage.getByRole("button", { name: "登录并查看今日账目" }).click();
   await expect(stalePage.getByRole("heading", { name: "今天生意怎么样？" })).toBeVisible();
 
-  await page.getByRole("button", { name: "设置" }).click();
+  await page.getByRole("link", { name: "设置" }).click();
   await page.getByRole("button", { name: "退出登录" }).click();
   await page.getByRole("button", { name: "忘记密码" }).click();
   await page.getByLabel("手机号").fill(phone);

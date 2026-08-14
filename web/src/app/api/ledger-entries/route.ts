@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     const storeId = request.nextUrl.searchParams.get("storeId");
     if (!organizationId || !storeId) return apiError("缺少家庭商户或摊位信息", 422);
     const { member, storeIds } = await resolveStoreScope(userId, organizationId, storeId);
-    const query = parseLedgerQuery(request.nextUrl.searchParams);
+    const organization = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { timezone: true } });
+    const query = parseLedgerQuery(request.nextUrl.searchParams, organization.timezone);
     const entries = await prisma.ledgerEntry.findMany({
       where: { storeId: { in: storeIds }, deletedAt: null, occurredAt: query.occurredAt, ...(query.type ? { type: query.type } : {}), ...(query.paymentMethod ? { paymentMethod: query.paymentMethod } : {}) },
       include: { store: { select: { id: true, name: true } } },

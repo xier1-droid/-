@@ -13,8 +13,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
     const { date } = await context.params;
     const storeId = request.nextUrl.searchParams.get("storeId");
     if (!storeId) return apiError("请选择摊位", 422);
-    await requireStoreAccess(userId, storeId);
-    const { start, end } = getDayBounds(date);
+    const { store } = await requireStoreAccess(userId, storeId);
+    const { start, end } = getDayBounds(date, store.timezone);
     const [closing, entries] = await Promise.all([
       prisma.dailyClosing.findUnique({ where: { storeId_businessDate: { storeId, businessDate: start } } }),
       prisma.ledgerEntry.findMany({ where: { storeId, deletedAt: null, occurredAt: { gte: start, lt: end }, paymentMethod: PaymentMethod.CASH } }),
@@ -32,8 +32,8 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ dat
     const userId = await requireUser();
     const { date } = await context.params;
     const input = dailyClosingSchema.parse(await request.json());
-    await requireStoreAccess(userId, input.storeId, true);
-    const { start } = getDayBounds(date);
+    const { store } = await requireStoreAccess(userId, input.storeId, true);
+    const { start } = getDayBounds(date, store.timezone);
     const closing = await prisma.dailyClosing.upsert({
       where: { storeId_businessDate: { storeId: input.storeId, businessDate: start } },
       create: { storeId: input.storeId, businessDate: start, openingCashFen: input.openingCashFen, actualClosingCashFen: input.actualClosingCashFen, note: input.note ?? null },

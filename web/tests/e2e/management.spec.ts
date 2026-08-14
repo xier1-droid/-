@@ -10,7 +10,7 @@ test("所有者可以新增并修改摊位", async ({ page }) => {
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码").fill("Management2026!");
   await page.locator("form").getByRole("button", { name: "创建账号" }).click();
-  await page.getByRole("button", { name: "设置" }).click();
+  await page.getByRole("link", { name: "设置" }).click();
   await page.getByRole("link", { name: /成员与摊位/ }).click();
   await expect(page.getByRole("heading", { name: "成员与摊位" })).toBeVisible();
   await expect(page.getByText(email + "（我）")).toBeVisible();

@@ -13,7 +13,8 @@ import { consumeVerificationCode } from "@/lib/verification";
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
-    if (!allowAttempt("register:" + ip, process.env.NODE_ENV === "production" ? 5 : 100)) return apiError("操作过于频繁，请稍后再试", 429, "RATE_LIMITED");
+    const testMode = process.env.SMS_ALLOW_MOCK_IN_PRODUCTION_TEST === "1";
+    if (!allowAttempt("register:" + ip, process.env.NODE_ENV === "production" && !testMode ? 5 : 100)) return apiError("操作过于频繁，请稍后再试", 429, "RATE_LIMITED");
     const parsed = registerSchema.parse(await request.json());
     const legacy = "email" in parsed;
     const identity = normalizeIdentity(legacy ? parsed.email : parsed.identifier);
@@ -42,6 +43,14 @@ export async function POST(request: NextRequest) {
         const organization = await tx.organization.create({ data: { name: parsed.organizationName } });
         await tx.organizationMember.create({ data: { organizationId: organization.id, userId: created.id, role: MemberRole.OWNER } });
         await tx.store.create({ data: { organizationId: organization.id, name: parsed.storeName } });
+        await tx.ledgerCategory.createMany({ data: [
+          { organizationId: organization.id, type: "INCOME", name: "销售收入", sortOrder: 100 },
+          { organizationId: organization.id, type: "INCOME", name: "其他收入", sortOrder: 110 },
+          { organizationId: organization.id, type: "EXPENSE", name: "进货", sortOrder: 100 },
+          { organizationId: organization.id, type: "EXPENSE", name: "摊位费", sortOrder: 110 },
+          { organizationId: organization.id, type: "EXPENSE", name: "交通", sortOrder: 120 },
+          { organizationId: organization.id, type: "EXPENSE", name: "其他支出", sortOrder: 130 },
+        ] });
       }
       return { user: created };
     });
