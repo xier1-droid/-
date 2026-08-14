@@ -2,25 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizationError, requireStoreAccess, requireUser } from "@/lib/auth";
 import { apiError, handleApiError } from "@/lib/http";
+import { ledgerPermissions, parseLedgerQuery } from "@/lib/ledger-query";
+import { resolveStoreScope } from "@/lib/store-scope";
 import { ledgerEntrySchema } from "@/lib/validators";
 
 
 export async function GET(request: NextRequest) {
   try {
     const userId = await requireUser();
+    const organizationId = request.nextUrl.searchParams.get("organizationId");
     const storeId = request.nextUrl.searchParams.get("storeId");
-    const from = request.nextUrl.searchParams.get("from");
-    const to = request.nextUrl.searchParams.get("to");
-    if (!storeId) return apiError("请选择摊位", 422);
-    const { store, member } = await requireStoreAccess(userId, storeId);
-    const where = {
-      storeId: store.id,
-      deletedAt: null,
-      ...(from || to ? { occurredAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}),
-    };
-    const entries = await prisma.ledgerEntry.findMany({ where, orderBy: { occurredAt: "desc" }, take: 200 });
-    return NextResponse.json({ entries, role: member.role });
-  } catch (error) { return authorizationError(error) ?? handleApiError(error); }
+    if (!organizationId || !storeId) return apiError("缺少家庭商户或摊位信息", 422);
+    const { member, storeIds } = await resolveStoreScope(userId, organizationId, storeId);
+    const query = parseLedgerQuery(request.nextUrl.searchParams);
+    const entries = await prisma.ledgerEntry.findMany({
+      where: { storeId: { in: storeIds }, deletedAt: null, occurredAt: query.occurredAt, ...(query.type ? { type: query.type } : {}), ...(query.paymentMethod ? { paymentMethod: query.paymentMethod } : {}) },
+      include: { store: { select: { id: true, name: true } } },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: query.limit + 1, ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+    });
+    const hasMore = entries.length > query.limit;
+    const page = hasMore ? entries.slice(0, query.limit) : entries;
+    return NextResponse.json({ entries: page, nextCursor: hasMore ? page.at(-1)?.id ?? null : null, permissions: ledgerPermissions(member.role) });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (code.startsWith("INVALID_")) return apiError("筛选条件不正确，请检查日期、收支类型和收付款方式。", 422, code);
+    return authorizationError(error) ?? handleApiError(error);
+  }
 }
 
 export async function POST(request: NextRequest) {
