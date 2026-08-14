@@ -68,3 +68,24 @@ h1, h2, p { margin-top: 0; }.auth-card h1 { margin: 8px 0 6px; font-size: 28px; 
 .cash-variance { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 10px; font-size: 13px; }
 .cash-variance.balanced { color: var(--green); background: var(--green-pale); }
 .cash-variance.over, .cash-variance.short { color: #a73f3a; background: var(--red-pale); }
+.management-entry { min-height: 46px; margin: 0 0 14px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #a9d5bf; border-radius: 11px; background: var(--green-pale); color: var(--ink); text-decoration: none; font-size: 14px; }
+.management-entry strong { color: var(--green); }
+.management-shell { padding-bottom: 48px; }
+.management-section { margin-top: 14px; border: 1px solid var(--line); background: white; }
+.management-title { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+.management-title > div { display: flex; align-items: baseline; gap: 8px; }
+.management-title h2 { margin: 0; font-size: 16px; }
+.management-title span { color: var(--muted); font-size: 12px; }
+.small-command { min-height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
+.management-list { display: grid; }
+.management-row { min-width: 0; padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+.management-row:last-child { border-bottom: 0; }
+.management-row > div:first-child { min-width: 0; }
+.management-row strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.management-row p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.compact-actions { flex: 0 0 auto; display: flex; gap: 2px; }
+.compact-actions button { border: 0; background: transparent; color: var(--green); padding: 7px; font-size: 12px; font-weight: 700; }
+.compact-actions .delete-link { color: var(--red); }
+.notice.neutral { color: #405047; background: #edf2ec; }
+.field-label { color: #405047; font-size: 13px; font-weight: 700; }
+@media (min-width: 560px) { .management-section { border-radius: 12px; overflow: hidden; } }

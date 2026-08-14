@@ -43,5 +43,12 @@ export const dailyClosingSchema = z.object({
 
 export const memberUpdateSchema = z.object({
   role: roleSchema.refine((role) => role !== "OWNER", "不能通过此接口转让所有者"),
-  storeIds: z.array(z.string()).min(1).max(30),
+  storeIds: z.array(z.string().min(1)).min(1, "至少授权一个摊位").max(30).refine((ids) => new Set(ids).size === ids.length, "摊位授权不能重复"),
 });
+
+export const storeCreateSchema = z.object({
+  organizationId: z.string().min(1, "缺少家庭商户标识"),
+  name: z.string().trim().min(1, "请输入摊位名称").max(60, "摊位名称不能超过 60 个字"),
+});
+
+export const storeUpdateSchema = storeCreateSchema.pick({ name: true });

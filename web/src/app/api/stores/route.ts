@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizationError, requireOwner, requireUser } from "@/lib/auth";
 import { handleApiError } from "@/lib/http";
-import { z } from "zod";
-
-const storeSchema = z.object({ organizationId: z.string().min(1), name: z.string().trim().min(1).max(60) });
+import { storeCreateSchema } from "@/lib/validators";
 
 export async function GET() {
   try {
@@ -18,7 +16,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const userId = await requireUser();
-    const input = storeSchema.parse(await request.json());
+    const input = storeCreateSchema.parse(await request.json());
     await requireOwner(userId, input.organizationId);
     const store = await prisma.store.create({ data: { organizationId: input.organizationId, name: input.name } });
     return NextResponse.json({ store }, { status: 201 });

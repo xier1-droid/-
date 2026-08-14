@@ -4,6 +4,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  workers: 1,
   use: { ...devices["Pixel 5"], baseURL },
   webServer: { command: "npm run dev", url: baseURL, reuseExistingServer: true },
 });
