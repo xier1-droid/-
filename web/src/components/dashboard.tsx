@@ -108,9 +108,48 @@ function EntryModal({ store, onClose, onSaved, onQueued }: { store: Store; onClo
 }
 
 function ClosingModal({ store, onClose, onSaved }: { store: Store; onClose: () => void; onSaved: () => void }) {
-  const [message, setMessage] = useState(""); const [pending, setPending] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setPending(true); const form = new FormData(event.currentTarget); try { const payload = { storeId: store.id, openingCashFen: yuanToFen(String(form.get("openingCash"))), actualClosingCashFen: form.get("actualCash") ? yuanToFen(String(form.get("actualCash"))) : null, note: form.get("note") || null }; const response = await fetch("/api/daily-closing/" + today(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await response.json().catch(() => null); setPending(false); if (!response.ok) { setMessage(result?.error?.message ?? "保存失败"); return; } onSaved(); } catch (error) { setPending(false); setMessage(error instanceof Error ? error.message : "金额不正确"); } }
-  return <Modal title={store.name + " · 今日日结"} onClose={onClose}><form className="form-stack" onSubmit={submit}><label>开档备用金（元）<input required inputMode="decimal" name="openingCash" defaultValue="0" /></label><label>实点现金（元）<input inputMode="decimal" name="actualCash" placeholder="可稍后再填" /></label><label>收摊备注（选填）<input name="note" placeholder="例如：明天提早半小时出摊" /></label>{message && <p className="form-error">{message}</p>}<button className="primary wide" disabled={pending}>{pending ? "保存中…" : "保存日结"}</button></form></Modal>;
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [cashIncomeFen, setCashIncomeFen] = useState(0);
+  const [cashExpenseFen, setCashExpenseFen] = useState(0);
+  const [openingCash, setOpeningCash] = useState("0.00");
+  const [actualCash, setActualCash] = useState("");
+  const [note, setNote] = useState("");
+  let openingCashFen = 0;
+  let actualCashFen: number | null = null;
+  try { openingCashFen = yuanToFen(openingCash || "0"); } catch {}
+  try { actualCashFen = actualCash ? yuanToFen(actualCash) : null; } catch {}
+  const expectedCashFen = openingCashFen + cashIncomeFen - cashExpenseFen;
+  const varianceFen = actualCashFen == null ? null : actualCashFen - expectedCashFen;
+
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/daily-closing/" + today() + "?storeId=" + store.id);
+        const result = await response.json().catch(() => null);
+        if (!response.ok) { setMessage(result?.error?.message ?? "日结数据加载失败"); return; }
+        setCashIncomeFen(result.cashIncomeFen); setCashExpenseFen(result.cashExpenseFen);
+        setOpeningCash(((result.closing?.openingCashFen ?? 0) / 100).toFixed(2));
+        setActualCash(result.closing?.actualClosingCashFen == null ? "" : (result.closing.actualClosingCashFen / 100).toFixed(2));
+        setNote(result.closing?.note ?? "");
+      } catch { setMessage("当前网络不可用，无法完成现金对账。"); } finally { setLoading(false); }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [store.id]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setPending(true); setMessage("");
+    try {
+      const payload = { storeId: store.id, openingCashFen: yuanToFen(openingCash), actualClosingCashFen: actualCash ? yuanToFen(actualCash) : null, note: note || null };
+      const response = await fetch("/api/daily-closing/" + today(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) { setMessage(result?.error?.message ?? "保存失败"); return; }
+      onSaved();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "金额不正确"); } finally { setPending(false); }
+  }
+
+  return <Modal title={store.name + " · 今日日结"} onClose={onClose}>{loading ? <p className="records-loading">正在核对今日现金…</p> : <form className="form-stack" onSubmit={submit}><div className="closing-summary"><div><span>现金收入</span><strong className="positive">+{formatFen(cashIncomeFen)}</strong></div><div><span>现金支出</span><strong className="negative">-{formatFen(cashExpenseFen)}</strong></div><div className="closing-total"><span>应有现金</span><strong>{formatFen(expectedCashFen)}</strong></div></div><p className="closing-formula">开档备用金 + 今日现金收入 - 今日现金支出</p><label>开档备用金（元）<input required inputMode="decimal" value={openingCash} onChange={(event) => setOpeningCash(event.target.value)} /></label><label>实点现金（元）<input inputMode="decimal" value={actualCash} onChange={(event) => setActualCash(event.target.value)} placeholder="收摊后清点现金并填写" /></label>{varianceFen != null && <div className={"cash-variance " + (varianceFen === 0 ? "balanced" : varianceFen > 0 ? "over" : "short")}><span>{varianceFen === 0 ? "现金相符" : varianceFen > 0 ? "现金多出" : "现金少了"}</span><strong>{varianceFen > 0 ? "+" : ""}{formatFen(varianceFen)}</strong></div>}<label>收摊备注（选填）<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="例如：明天提早半小时出摊" /></label>{message && <p className="form-error">{message}</p>}<button className="primary wide" disabled={pending}>{pending ? "保存中…" : actualCash ? "确认日结" : "暂存日结"}</button></form>}</Modal>;
 }
 
 function InviteModal({ organizationId, stores, onClose }: { organizationId: string; stores: Store[]; onClose: () => void }) {
