@@ -19,6 +19,7 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
   const [showEntry, setShowEntry] = useState(false);
   const [showClosing, setShowClosing] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
   const canManage = bootstrap.member.role === "OWNER";
   const writable = bootstrap.member.role !== "VIEWER";
@@ -56,7 +57,7 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
 
   const scopeOptions = useMemo(() => bootstrap.stores, [bootstrap.stores]);
   return <main className="app-shell">
-    <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name}</p><h1>今天生意怎么样？</h1></div><button className="ghost" onClick={sync}>同步{syncCount ? " · " + syncCount : ""}</button></header>
+    <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name}</p><h1>今天生意怎么样？</h1></div><div className="topbar-actions"><button className="ghost" onClick={sync}>同步{syncCount ? " · " + syncCount : ""}</button><button className="ghost" onClick={() => setShowSettings(true)}>设置</button></div></header>
     <section className="scope-row"><select value={storeScope} onChange={(event) => setStoreScope(event.target.value)} aria-label="选择摊位"><option value="all">全部已授权摊位</option>{scopeOptions.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>{canManage && <button className="link-button" onClick={() => setShowInvite(true)}>邀请家人</button>}</section>
     {storeScope === "all" && writable && <p className="scope-hint">请先选择一个具体摊位，再记一笔或做日结。</p>}
     {message && <p className="notice">{message}</p>}
@@ -71,6 +72,7 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
     {showEntry && selectedStore && <EntryModal store={selectedStore} onClose={() => setShowEntry(false)} onSaved={() => { setShowEntry(false); loadSummary(); }} onQueued={(text) => { setShowEntry(false); setMessage(text); offlineDb.pendingOperations.count().then(setSyncCount); }} />}
     {showClosing && selectedStore && <ClosingModal store={selectedStore} onClose={() => setShowClosing(false)} onSaved={() => { setShowClosing(false); setMessage("日结已保存"); }} />}
     {showInvite && <InviteModal organizationId={bootstrap.organization.id} stores={bootstrap.stores} onClose={() => setShowInvite(false)} />}
+    {showSettings && <SettingsModal organization={bootstrap.organization} role={bootstrap.member.role} stores={bootstrap.stores} syncCount={syncCount} onClose={() => setShowSettings(false)} />}
   </main>;
 }
 
@@ -99,6 +101,19 @@ function InviteModal({ organizationId, stores, onClose }: { organizationId: stri
   const [message, setMessage] = useState(""); const [code, setCode] = useState(""); const [selected, setSelected] = useState<string[]>(stores.map((store) => store.id));
   async function create() { const response = await fetch("/api/organizations/current/invitations?organizationId=" + organizationId, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetRole: "BOOKKEEPER", storeIds: selected }) }); const result = await response.json().catch(() => null); if (!response.ok) { setMessage(result?.error?.message ?? "创建失败"); return; } setCode(result.invitation.code); }
   return <Modal title="邀请家人一起记账" onClose={onClose}><p className="muted">邀请码 7 天内有效，仅能使用一次。受邀家人将以“记账员”身份加入。</p><div className="check-list">{stores.map((store) => <label key={store.id}><input type="checkbox" checked={selected.includes(store.id)} onChange={() => setSelected((current) => current.includes(store.id) ? current.filter((id) => id !== store.id) : [...current, store.id])} />{store.name}</label>)}</div>{message && <p className="form-error">{message}</p>}{code ? <div className="invite-code"><span>邀请码</span><strong>{code}</strong><button className="ghost" onClick={() => navigator.clipboard.writeText(code)}>复制</button></div> : <button className="primary wide" disabled={!selected.length} onClick={create}>生成邀请码</button>}</Modal>;
+}
+
+function SettingsModal({ organization, role, stores, syncCount, onClose }: { organization: Bootstrap["organization"]; role: string; stores: Store[]; syncCount: number; onClose: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const roleLabel: Record<string, string> = { OWNER: "所有者", ADMIN: "管理员", BOOKKEEPER: "记账员", VIEWER: "查看者" };
+  async function logout() {
+    setPending(true);
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) { setMessage("退出失败，请稍后重试。"); setPending(false); return; }
+    window.location.reload();
+  }
+  return <Modal title="设置" onClose={onClose}><div className="settings-list"><div><span>家庭商户</span><strong>{organization.name}</strong></div><div><span>我的权限</span><strong>{roleLabel[role] ?? "成员"}</strong></div><div><span>可访问摊位</span><strong>{stores.length} 个</strong></div><div><span>待同步账目</span><strong>{syncCount ? syncCount + " 笔" : "已全部同步"}</strong></div><div><span>界面语言</span><strong>简体中文</strong></div></div>{message && <p className="form-error">{message}</p>}<button className="danger wide" onClick={logout} disabled={pending}>{pending ? "正在退出…" : "退出登录"}</button><p className="settings-tip">退出后，本机离线队列仍会保留；下次登录同一账号后可继续同步。</p></Modal>;
 }
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop"><section className="modal"><header><h2>{title}</h2><button className="ghost" onClick={onClose}>关闭</button></header>{children}</section></div>; }
