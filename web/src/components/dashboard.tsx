@@ -12,13 +12,13 @@ type Summary = { incomeFen: number; expenseFen: number; netFen: number; transact
 const methodLabel: Record<string, string> = { CASH: "现金", WECHAT: "微信", ALIPAY: "支付宝", BANK_CARD: "银行卡", OTHER: "其他" };
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const shiftDate = (days: number) => { const date = new Date(); date.setDate(date.getDate() + days); return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(date); };
-const initialRange = (): DateRange => ({ from: shiftDate(-6), to: today(), mode: "近 7 天" });
 const rangeLabel = (range: DateRange) => range.from === range.to ? range.from.replaceAll("-", "/") : range.from.replaceAll("-", "/") + " - " + range.to.replaceAll("-", "/");
 
-export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
+export function Dashboard({ bootstrap, initialDateRange }: { bootstrap: Bootstrap; initialDateRange: DateRange }) {
   const [storeScope, setStoreScope] = useState("all");
-  const [dateRange, setDateRange] = useState<DateRange>(initialRange);
+  const [dateRange, setDateRange] = useState<DateRange>(initialDateRange);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [rangePreferenceLoaded, setRangePreferenceLoaded] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -59,6 +59,7 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
     const timer = window.setTimeout(() => {
       const saved = window.localStorage.getItem(rangeStorageKey);
       if (saved) { try { const parsed = JSON.parse(saved) as DateRange; if (parsed.from && parsed.to && parsed.from <= parsed.to) setDateRange(parsed); } catch {} }
+      setRangePreferenceLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [rangeStorageKey]);
@@ -70,7 +71,8 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
 
   const scopeOptions = useMemo(() => bootstrap.stores, [bootstrap.stores]);
   function applyRange(nextRange: DateRange) { window.localStorage.setItem(rangeStorageKey, JSON.stringify(nextRange)); setDateRange(nextRange); setShowDatePicker(false); }
-  return <main className="app-shell">
+  const exportHref = "/api/exports/ledger.csv?organizationId=" + bootstrap.organization.id + "&storeId=" + apiScope + "&from=" + dateRange.from + "&to=" + dateRange.to;
+  return <main className="app-shell" data-range-ready={rangePreferenceLoaded ? "true" : "false"}>
     <header className="topbar"><div><p className="eyebrow">{bootstrap.organization.name}</p><h1>今天生意怎么样？</h1></div><div className="topbar-actions"><button className="ghost" onClick={sync}>同步{syncCount ? " · " + syncCount : ""}</button><button className="ghost" onClick={() => setShowSettings(true)}>设置</button></div></header>
     <section className="scope-row"><select value={storeScope} onChange={(event) => setStoreScope(event.target.value)} aria-label="选择摊位"><option value="all">全部已授权摊位</option>{scopeOptions.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>{canManage && <button className="link-button" onClick={() => setShowInvite(true)}>邀请家人</button>}</section>
     {storeScope === "all" && writable && <p className="scope-hint">请先选择一个具体摊位，再记一笔或做日结。</p>}
@@ -82,7 +84,7 @@ export function Dashboard({ bootstrap }: { bootstrap: Bootstrap }) {
       <section className="panel"><div className="panel-title"><h2>收款方式</h2><span>收入构成</span></div><div className="payment-list">{summary.paymentBreakdown.length ? summary.paymentBreakdown.map((item) => <div key={item.paymentMethod}><span>{methodLabel[item.paymentMethod]}</span><b>{formatFen(item.amountFen)}</b></div>) : <p className="muted">还没有收入记录</p>}</div></section>
       <section className="panel"><div className="panel-title"><h2>最近账目</h2><span>{summary.recentEntries.length} 笔</span></div><div className="entry-list">{summary.recentEntries.length ? summary.recentEntries.map((entry) => <div className="entry-row" key={entry.id}><div><b>{entry.category}</b><small>{entry.store.name} · {methodLabel[entry.paymentMethod]} · {new Date(entry.occurredAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</small></div><strong className={entry.type === "INCOME" ? "positive" : "negative"}>{entry.type === "INCOME" ? "+" : "-"}{formatFen(entry.amountFen)}</strong></div>) : <p className="muted">从“记一笔”开始记录今天的生意吧。</p>}</div></section>
     </>}
-    <nav className="bottom-nav"><button onClick={() => setShowEntry(true)} disabled={!writable || !selectedStore} className="add-button">＋ 记一笔</button><button onClick={() => setShowClosing(true)} disabled={!writable || storeScope === "all"}>日结</button><a className="nav-link" href={"/api/exports/ledger.csv?organizationId=" + bootstrap.organization.id + "&storeId=" + apiScope + "&from=" + dateRange.from + "&to=" + dateRange.to}>导出</a></nav>
+    <nav className="bottom-nav"><button onClick={() => setShowEntry(true)} disabled={!writable || !selectedStore} className="add-button">＋ 记一笔</button><button onClick={() => setShowClosing(true)} disabled={!writable || storeScope === "all"}>日结</button><a className="nav-link" href={exportHref}>导出</a></nav>
     {showEntry && selectedStore && <EntryModal store={selectedStore} onClose={() => setShowEntry(false)} onSaved={() => { setShowEntry(false); loadSummary(); }} onQueued={(text) => { setShowEntry(false); setMessage(text); offlineDb.pendingOperations.count().then(setSyncCount); }} />}
     {showClosing && selectedStore && <ClosingModal store={selectedStore} onClose={() => setShowClosing(false)} onSaved={() => { setShowClosing(false); setMessage("日结已保存"); }} />}
     {showInvite && <InviteModal organizationId={bootstrap.organization.id} stores={bootstrap.stores} onClose={() => setShowInvite(false)} />}
